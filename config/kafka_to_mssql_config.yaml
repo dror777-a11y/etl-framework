@@ -1,0 +1,134 @@
+# kafka_to_mssql_config.yaml
+# Sample configuration for Kafka to MSSQL ETL pipeline
+
+# Data source configuration
+source:
+  type: kafka
+  kafka:
+    bootstrap_servers:
+      - "localhost:9092"
+    topic: "user_events"
+    group_id: "etl_consumer_group"
+    auto_offset_reset: "earliest"
+    max_messages: 1000
+    timeout_ms: 10000
+  parser:
+    strict_mode: false
+    handle_malformed: true
+
+# Data target configuration
+target:
+  type: mssql
+  mssql:
+    server: "localhost"
+    database: "etl_target_db"
+    table_name: "processed_user_events"
+    username: "sa"
+    password: "YourPassword123"
+    port: 1433
+    driver: "ODBC Driver 17 for SQL Server"
+    batch_size: 1000
+    create_table: true
+    truncate_before_load: false
+    upsert_mode: false
+    primary_key: "recordId"
+    connection_timeout: 30
+    command_timeout: 60
+    trust_server_certificate: true
+
+# Data transformation configuration
+transformations:
+  data_cleaner:
+    enabled: true
+    config:
+      cleaning_rules:
+        trim_whitespace: true
+        remove_empty_strings: true
+        standardize_nulls: true
+        validate_emails: true
+        clean_phone_numbers: true
+      null_values:
+        - ""
+        - "null"
+        - "NULL"
+        - "None"
+        - "N/A"
+        - "n/a"
+        - "UNDEFINED"
+      validation_rules:
+        email: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+        phone: "^[\\+]?[1-9][\\d]{0,15}$"
+      strict_validation: false
+
+  flattener:
+    enabled: true
+    config:
+      separator: "."
+      max_depth: 10
+      array_handling: "index"  # index, enumerate, or concat
+      preserve_arrays: false
+      null_value_handling: "keep"  # keep, remove, or empty_string
+      flatten_objects: true
+      flatten_arrays: true
+      array_index_format: "[{index}]"
+
+  field_mapper:
+    enabled: true
+    config:
+      field_mappings:
+        kafka:
+          first_name: ["firstName", "user_name", "f_name"]
+          last_name: ["lastName", "surname", "l_name"]
+          email_address: ["email", "emailAddress", "user_email"]
+          phone_number: ["phone", "phoneNumber", "mobile"]
+          user_age: ["age", "userAge"]
+          is_active: ["active", "isActive", "status"]
+          created_date: ["created_date", "createdAt", "timestamp"]
+      keep_unmapped_fields: true
+      case_sensitive: false
+
+  type_converter:
+    enabled: true
+    config:
+      type_conversions:
+        user_age: "int"
+        price: "float"
+        amount: "float"
+        is_active: "bool"
+        active: "bool"
+        created_date: "datetime"
+        createdAt: "datetime"
+        first_name: "str"
+        last_name: "str"
+        email_address: "str"
+      strict_mode: false
+      default_values:
+        int: 0
+        float: 0.0
+        bool: false
+        str: ""
+        datetime: null
+
+  metadata_enricher:
+    enabled: true
+    config:
+      add_created_at: true
+      add_processed_at: true
+      add_unique_id: true
+      add_source_info: true
+      created_at_field: "createdAt"
+      processed_at_field: "processedAt"
+      id_field: "recordId"
+      datetime_format: "iso"
+      id_prefix: "ETL"
+      additional_metadata:
+        pipeline_version: "1.0.0"
+        environment: "production"
+        data_source: "kafka_user_events"
+
+# Pipeline configuration
+pipeline:
+  name: "Kafka to MSSQL User Events ETL"
+  description: "ETL pipeline for processing user events from Kafka to MSSQL"
+  version: "1.0.0"
+  logging_level: "INFO"
