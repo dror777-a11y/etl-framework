@@ -108,61 +108,11 @@ class MetadataEnricher(BaseTransformer):
         return self._add_transformation_metadata(result, transformation_info)
 
     def _enrich_record(self, record: Dict[str, Any], original_metadata: Dict[str, Any]) -> tuple:
-        """
-        Enrich a single record with metadata fields.
-
-        Args:
-            record: Single data record to enrich
-            original_metadata: Original metadata from parser
-
-        Returns:
-            Tuple of (enriched_record, enrichment_stats)
-        """
         enriched_record = record.copy()
-        stats = {
-            "created_at_added": 0,
-            "processed_at_added": 0,
-            "unique_ids_added": 0,
-            "source_info_added": 0
-        }
+        stats = {"created_at_added": 1}
 
-        # Add createdAt field (as specified in requirements)
-        if self.add_created_at:
-            enriched_record[self.created_at_field] = self._format_datetime(self.processing_timestamp)
-            stats["created_at_added"] = 1
-
-        # Add processedAt field
-        if self.add_processed_at:
-            enriched_record[self.processed_at_field] = self._format_datetime(datetime.now())
-            stats["processed_at_added"] = 1
-
-        # Add unique identifier
-        if self.add_unique_id:
-            unique_id = self._generate_unique_id()
-            enriched_record[self.id_field] = unique_id
-            stats["unique_ids_added"] = 1
-
-        # Add source information
-        if self.add_source_info:
-            source_type = original_metadata.get("source_type", "unknown")
-            enriched_record["dataSource"] = source_type
-
-            # Add specific source details
-            if source_type == "kafka":
-                topic = original_metadata.get("topic")
-                if topic:
-                    enriched_record["sourceTopic"] = topic
-            elif source_type == "mongodb":
-                doc_id = original_metadata.get("document_id")
-                if doc_id:
-                    enriched_record["sourceDocumentId"] = doc_id
-
-            stats["source_info_added"] = 1
-
-        # Add any additional static metadata
-        for key, value in self.additional_metadata.items():
-            if key not in enriched_record:  # Don't override existing fields
-                enriched_record[key] = value
+        # Add createdAt field (required by specifications - always added)
+        enriched_record["createdAt"] = datetime.now().isoformat()
 
         return enriched_record, stats
 

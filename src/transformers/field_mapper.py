@@ -81,25 +81,18 @@ class FieldMapper(BaseTransformer):
                         self.reverse_mapping[source_type][lookup_key] = target_field
 
     def _map_fields(self, record: Dict[str, Any], source_type: str) -> Dict[str, Any]:
-            """
-             Map field names for a single record based on source type.
-             Returns: Record with mapped field names
-            """
-            mapped_record={}
-            source_mappings =self.reverse_mapping.get(source_type, {})
+        mapped_record = {}
+        source_mappings = self.reverse_mapping.get(source_type, {})
 
-            for field_name, field_value in record.items():
-                # Determine lookup key based on case sensitivity
-                lookup_key= field_name if self.case_sensitive else field_name.lower()
+        for field_name, field_value in record.items():
+            # Check if field should be mapped
+            if field_name in source_mappings:
+                target_field = source_mappings[field_name]
+                mapped_record[target_field] = field_value
+            elif self.keep_unmapped_fields:
+                mapped_record[field_name] = field_value
 
-                # Check if field should be mapped
-                if lookup_key in source_mappings:
-                    target_field = source_mappings[lookup_key]
-                    mapped_record[target_field] = field_value
-                elif self.keep_unmapped_fields:
-                    mapped_record[field_name] = field_value
-
-            return mapped_record
+        return mapped_record
 
     def get_transformer_info(self) -> Dict[str, str]:
             """

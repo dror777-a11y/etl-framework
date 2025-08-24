@@ -1,0 +1,25 @@
+source:
+  type: kafka
+  kafka:
+    bootstrap_servers: ["localhost:9092"]
+    topic: "test_topic"
+    group_id: "etl_group"
+    max_messages: 5
+
+target:
+  type: mssql
+  mssql:
+    server: "localhost"
+    database: "test_db"
+    table_name: "processed_data"
+    username: "sa"
+    password: "password"
+    create_table: true
+
+transformations:
+  field_mapper:
+    enabled: false
+  type_converter:
+    enabled: false
+  flattener:
+    enabled: false

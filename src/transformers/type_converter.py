@@ -182,7 +182,7 @@ class TypeConverter(BaseTransformer):
 
             elif target_type == "datetime":
                 if isinstance(value, datetime):
-                    return value, True
+                    return value.isoformat(), True
                 elif isinstance(value, str):
                     # Try common datetime formats
                     formats = [
@@ -195,7 +195,7 @@ class TypeConverter(BaseTransformer):
 
                     for fmt in formats:
                         try:
-                            return datetime.strptime(value.strip(), fmt), True
+                            return datetime.strptime(value.strip(), fmt).isoformat(), True
                         except ValueError:
                             continue
 
