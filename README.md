@@ -1,147 +1,194 @@
-# ETL Framework Project
+# ETL Framework
+
+Generic ETL framework that processes data from MongoDB and Kafka sources and loads it into Microsoft SQL Server.
 
 ## Overview
 
-This project implements a generic ETL (Extract-Transform-Load) framework that can process data from various sources and load it into Microsoft SQL Server. I built this as a modular system where each component can be easily replaced or extended.
+This project implements a modular ETL pipeline following the Extract → Parse → Transform → Load pattern. The framework standardizes field names, converts data types, flattens nested JSON, and adds metadata fields before loading data into MSSQL.
 
-## What it does
+## Setup Instructions
 
-The framework takes data from MongoDB or Kafka, cleans and transforms it according to business rules, and loads it into a SQL Server database. Everything is controlled through configuration files, so you can adapt it for different data sources without changing code.
+### Prerequisites
+- Python 3.8+
+- Microsoft SQL Server
+- MongoDB (if using MongoDB source)
+- Apache Kafka (if using Kafka source)
 
-## Architecture
+### Installation
 
-I designed this with a clear separation of concerns:
+1. Clone the repository:
+```bash
+git clone https://github.com/dror777-a11y/etl-framework.git
+cd etl-framework
+```
 
-- **Extractors** pull raw data from sources (MongoDB collections, Kafka topics)
-- **Parsers** convert raw data into a standard format
-- **Transformers** clean, reshape, and enrich the data
-- **Loaders** insert the final data into the target database
+2. Create and activate virtual environment:
+```bash
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# Linux/Mac:
+source .venv/bin/activate
+```
 
-The pipeline runs these components in sequence, with full error handling and rollback capabilities.
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-## Key Features
+4. Configure your data sources and target database in the YAML configuration files (see Example Config Files section).
 
-### Data Sources
-- MongoDB document extraction with flexible queries
-- Kafka message consumption with offset management
-- Easy to add new sources by implementing the base extractor interface
+## How to Run ETL for Each Source
 
-### Data Transformations
-- **Data Cleaning**: Removes whitespace, standardizes null values, validates emails/phones
-- **Field Mapping**: Converts different source field names to standard schema
-- **Type Conversion**: Automatically converts strings to proper data types
-- **Flattening**: Handles nested JSON by creating flat database-friendly fields
-- **Metadata Enrichment**: Adds tracking fields like createdAt, recordId, dataSource
+### Kafka Source
+```bash
+# Test with dry run (processes only 10 records)
+python src/etl_pipeline.py config/kafka_to_mssql_config.yaml --dry-run 10
 
-### Configuration Management
-- YAML-based configuration for all pipeline settings
-- Separate configs for different source-target combinations
-- Schema validation to catch configuration errors early
+# Validate configuration
+python src/etl_pipeline.py config/kafka_to_mssql_config.yaml --validate
 
-### Operational Features
-- Batch processing for efficient database loading
-- Comprehensive logging at all pipeline stages
-- Dry run capability for testing with sample data
-- Automatic table creation with proper data types
-- Connection pooling and timeout handling
+# Run full pipeline
+python src/etl_pipeline.py config/kafka_to_mssql_config.yaml
+```
+
+### MongoDB Source
+```bash
+# Test with dry run (processes only 10 records)
+python src/etl_pipeline.py config/mongodb_to_mssql_config.yaml --dry-run 10
+
+# Validate configuration
+python src/etl_pipeline.py config/mongodb_to_mssql_config.yaml --validate
+
+# Run full pipeline
+python src/etl_pipeline.py config/mongodb_to_mssql_config.yaml
+```
 
 ## Project Structure
 
 ```
 etl_framework/
-├── src/                    # Source code
-│   ├── extractors/        # Data extraction components
-│   ├── parsers/           # Raw data parsing
-│   ├── transformers/      # Data transformation logic
-│   ├── loaders/           # Database loading
-│   ├── config_manager/    # Configuration handling
-│   └── etl_pipeline.py    # Main pipeline orchestrator
-├── config/                # Configuration files
-├── tests/                 # Test scripts
-└── requirements.txt       # Python dependencies
+├── src/                           # Source code
+│   ├── config_manager/           # Configuration handling
+│   ├── extractors/               # Data extraction components
+│   │   ├── kafka_extractor.py    # Kafka message extraction
+│   │   └── mongo_extractor.py    # MongoDB document extraction
+│   ├── parsers/                  # Raw data parsing
+│   │   ├── json_parser.py        # JSON parsing for Kafka
+│   │   └── bson_parser.py        # BSON parsing for MongoDB
+│   ├── transformers/             # Data transformation logic
+│   │   ├── field_mapper.py       # Standardize field names
+│   │   ├── type_converter.py     # Convert data types
+│   │   ├── flattener.py          # Flatten nested JSON
+│   │   ├── data_cleaner.py       # Clean and validate data
+│   │   └── metadata_enricher.py  # Add metadata fields
+│   ├── loaders/                  # Database loading
+│   │   └── mssql_loader.py       # MSSQL Server loading
+│   └── etl_pipeline.py           # Main pipeline orchestrator
+├── config/                       # Configuration files
+│   ├── kafka_to_mssql_config.yaml
+│   ├── mongodb_to_mssql_config.yaml
+│   └── simple_config.yaml
+├── tests/                        # Test scripts
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
 ```
 
-## Usage Examples
+## Design Decisions
 
-### Basic Pipeline Execution
-```bash
-python -m src.etl_pipeline config/kafka_to_mssql_config.yaml
-```
+The framework follows a strict 4-stage ETL pattern:
 
-### Configuration Validation
-```bash
-python -m src.etl_pipeline config/mongodb_to_mssql_config.yaml --validate
-```
+### 1. Extract
+- **MongoDB**: Connects to collections and extracts documents with flexible queries
+- **Kafka**: Consumes messages from topics with offset management
 
-### Testing with Limited Data
-```bash
-python -m src.etl_pipeline config/kafka_to_mssql_config.yaml --dry-run 100
-```
+### 2. Parse  
+- **JSON Parser**: Processes Kafka messages into standardized format
+- **BSON Parser**: Processes MongoDB documents, handling ObjectIds and datetime objects
+
+### 3. Transform
+Data flows through transformers in sequence:
+- **Field Mapping**: Standardizes field names across different sources
+- **Type Conversion**: Converts strings to appropriate data types (int, float, bool, datetime)
+- **Flattening**: Converts nested JSON structures to flat database-friendly format  
+- **Data Cleaning**: Removes whitespace, standardizes null values, validates data
+- **Metadata Enrichment**: Adds createdAt timestamp (automatically applied)
+
+### 4. Load
+- **MSSQL Loader**: Batch inserts with automatic table creation and error handling
 
 ## Configuration
 
-The system uses YAML files to define all pipeline behavior. Here's what you can configure:
+The system uses YAML files for all configuration. Key sections:
 
-- **Source settings**: Connection details, queries, message limits
-- **Transformation rules**: Field mappings, data type conversions, cleaning rules
-- **Target settings**: Database connection, table names, batch sizes
-- **Pipeline options**: Logging levels, error handling, metadata fields
+```yaml
+source:              # Data source configuration
+  type: kafka        # mongodb or kafka
+  kafka:            # Source-specific settings
+    bootstrap_servers: ["localhost:9092"]
+    topic: "events"
 
-## Technical Implementation
+target:             # Target database configuration  
+  type: mssql
+  mssql:
+    server: "localhost"
+    database: "etl_target"
+    table_name: "processed_data"
 
-### Error Handling
-I implemented comprehensive error handling at every stage. The system can continue processing even if individual records fail, and it provides detailed logging about what went wrong.
+transformations:    # Transformation configuration
+  field_mapper:
+    enabled: true
+    config:
+      field_mappings:
+        kafka:
+          first_name: ["firstName", "user_name"]
+```
 
-### Performance Considerations
-- Batch processing reduces database round trips
-- Connection pooling manages database resources
-- Memory-efficient streaming for large datasets
-- Configurable batch sizes based on available resources
+## Example Config Files
 
-### Data Quality
-The transformation pipeline includes multiple data quality checks:
-- Schema validation against expected formats
-- Data type validation with fallback defaults
-- Duplicate detection and handling
-- Referential integrity checks where applicable
+- **`config/kafka_to_mssql_config.yaml`** - Complete Kafka to MSSQL pipeline configuration
+- **`config/mongodb_to_mssql_config.yaml`** - Complete MongoDB to MSSQL pipeline configuration  
+- **`config/simple_config.yaml`** - Minimal test configuration for quick testing
 
 ## Dependencies
 
-The project uses standard Python libraries for data processing:
-- `pymongo` for MongoDB connectivity
-- `kafka-python` for Kafka integration
-- `pyodbc` for SQL Server connections
-- `PyYAML` for configuration management
-- `pandas` for data manipulation
+The project uses these Python libraries:
+- `PyYAML` - Configuration file parsing
+- `pyodbc` - SQL Server connectivity  
+- `pymongo` - MongoDB connectivity
+- `kafka-python` - Kafka integration
+- `colorlog` - Enhanced logging
+
+## Features
+
+### Error Handling
+- Comprehensive error handling at every pipeline stage
+- Failed records logged with detailed error messages
+- Pipeline continues processing even if individual records fail
+
+### Performance
+- Batch processing for efficient database operations
+- Configurable batch sizes
+- Connection pooling and timeout management
+- Memory-efficient streaming for large datasets
+
+### Operational
+- Dry run capability for testing
+- Configuration validation
+- Detailed logging at all stages
+- Automatic database table creation
 
 ## Testing
 
-I included test scripts for each major component:
-- Unit tests for individual transformers
-- Integration tests for full pipeline execution
-- Configuration validation tests
-- Sample data generators for testing
+Run the included test scripts:
 
-## Future Enhancements
+```bash
+# Test all transformers
+python test_transformers.py
 
-Some ideas for extending this framework:
-- Add support for additional data sources (PostgreSQL, REST APIs)
-- Implement real-time streaming processing
-- Add data lineage tracking
-- Build a web UI for pipeline monitoring
-- Add support for schema evolution
+# Test extractors (requires running MongoDB/Kafka)
+python test_extractors.py
 
-## Development Notes
-
-This was built with maintainability in mind. Each component follows the same interface pattern, making it easy to add new functionality. The configuration-driven approach means most changes can be made without touching code.
-
-The biggest challenge was handling the variety of data formats and ensuring reliable error recovery. I solved this by implementing a standardized internal data format that all components work with.
-
-## Installation
-
-1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
-3. Configure your data sources and targets in the YAML files
-4. Run the pipeline with your chosen configuration
-
-The system is designed to work out of the box once you provide valid connection details for your data sources and target database.
+# Test parsers  
+python test_parsers.py
+```
