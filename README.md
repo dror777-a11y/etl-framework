@@ -2,7 +2,7 @@
 
 Generic ETL framework that processes data from MongoDB and Kafka sources and loads it into Microsoft SQL Server.
 
-## Overview
+## Overview 
 
 This project implements a modular ETL pipeline following the Extract → Parse → Transform → Load pattern. The framework standardizes field names, converts data types, flattens nested JSON, and adds metadata fields before loading data into MSSQL.
 
